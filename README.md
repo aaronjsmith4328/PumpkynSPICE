@@ -12,7 +12,6 @@
   <img alt="Python" src="https://img.shields.io/badge/python-3.14-blue.svg">
   <img alt="uv" src="https://img.shields.io/badge/managed%20with-uv-6C4EE0.svg">
   <img alt="Status" src="https://img.shields.io/badge/status-experimental-orange.svg">
-  <img alt="License" src="https://img.shields.io/badge/license-MIT-green.svg">
 </p>
 
 ---
