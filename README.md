@@ -1,4 +1,4 @@
-<p align="center">
+lign="center">
   <img src="pumpkyn_spice_logo.png" alt="pumpkynspice logo" width="260"/>
 </p>
 
@@ -54,16 +54,17 @@ Running the simulator with the default parameters (a 3.3V pulse from 5s–10s) p
 
 ### Requirements
 
-- Python 3.14
+- Python 3.14 (uv's default on this machine — no need to pin it explicitly)
 - [uv](https://docs.astral.sh/uv/) for environment/dependency management
 - [matplotlib](https://matplotlib.org/)
 
 ### Setup
 
 ```bash
-uv venv --python 3.14
-uv pip install matplotlib
+uv add matplotlib
 ```
+
+This adds `matplotlib` to `pyproject.toml`, updates `uv.lock`, and syncs your `.venv`.
 
 ### Run it
 
@@ -93,6 +94,9 @@ Smaller `dt` gives a smoother, more accurate curve at the cost of more steps to 
 ## Roadmap
 
 - [ ] Expose simulation parameters as CLI args / function inputs (in progress)
+- [ ] Add Backward Euler integration
+- [ ] Add Non-Linear Elements (diodes, transistors)
+- [ ] Add State-Space/Matrix Methods of solving for more complex circuits
 - [ ] Add a NumPy-vectorized implementation (`fast.py`)
 - [ ] Benchmark `slow.py` vs. `fast.py` across a range of input sizes
 - [ ] Maybe: swap forward-Euler for a higher-order integrator (RK4)
