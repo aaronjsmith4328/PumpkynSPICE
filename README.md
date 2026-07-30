@@ -1,4 +1,4 @@
-lign="center">
+<p align="center">
   <img src="pumpkyn_spice_logo.png" alt="pumpkynspice logo" width="260"/>
 </p>
 
