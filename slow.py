@@ -24,7 +24,7 @@ slow.py -- pumpkynspice RC circuit simulator (pure-Python reference implementati
  
 Simulates the step response of a simple first-order RC low-pass circuit driven
 by a trapezoidal pulse (rise -> high -> fall -> low). The source voltage Vs(t)
-is generated sample-by-sample, and Vout(t) is integrated with a basic forward-
+is generated sample-by-sample, and Vout(t) is integrated with a basic backward-
 Euler update of the capacitor voltage:
  
     i_R(t)   = (Vs(t) - Vout(t)) / R
@@ -92,8 +92,8 @@ def main():
     Vout_list = []
     Vout = 0
     for voltage in v:
-        i_r = (voltage - Vout) / R
-        Vout = Vout + i_r * dt / C
+        RC = R*C
+        Vout = (RC/(RC+dt)) * Vout + (dt/(RC+dt)) * voltage
         Vout_list.append(Vout)
 
     # Now lets plot

@@ -18,7 +18,7 @@
 
 ## What is this?
 
-**pumpkynspice** simulates the step response of a simple first-order **RC circuit** driven by a trapezoidal voltage pulse (rise → high → fall → low). It numerically integrates the classic RC charging equation using forward-Euler updates:
+**pumpkynspice** simulates the step response of a simple first-order **RC circuit** driven by a trapezoidal voltage pulse (rise → high → fall → low). It numerically integrates the classic RC charging equation using backward-Euler updates:
 
 ```
 i_R(t)     = (Vs(t) - Vout(t)) / R
@@ -94,9 +94,9 @@ Smaller `dt` gives a smoother, more accurate curve at the cost of more steps to 
 ## Roadmap
 
 - [ ] Expose simulation parameters as CLI args / function inputs (in progress)
-- [ ] Add Backward Euler integration
+- [x] Add Backward Euler integration
 - [ ] Add Non-Linear Elements (diodes, transistors)
 - [ ] Add State-Space/Matrix Methods of solving for more complex circuits
 - [ ] Add a NumPy-vectorized implementation (`fast.py`)
 - [ ] Benchmark `slow.py` vs. `fast.py` across a range of input sizes
-- [ ] Maybe: swap forward-Euler for a higher-order integrator (RK4)
+- [ ] Maybe: swap backward-Euler for a higher-order integrator (RK4)
