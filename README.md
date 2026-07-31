@@ -44,7 +44,7 @@ A **NumPy-vectorized version is planned** (`fast.py`, working name) to benchmark
 
 ## Example output
 
-Running the simulator with the default parameters (a 3.3V pulse from 5s–10s) produces the following waveform:
+Running the simulator with the default parameters produces something like the following waveform:
 
 <p align="center">
   <img src="output.png" alt="Vout vs Vsource waveform" width="600"/>

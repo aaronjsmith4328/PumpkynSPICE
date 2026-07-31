@@ -59,13 +59,95 @@ Output:
 Usage:
     uv run slow.py
 """
+import math
+import random
 import matplotlib.pyplot as plt
 
-def make_ramp(v_from, v_to, duration, dt):
+def make_ramp(v_from, v_to, duration, dt,
+              n_sine=3, n_tri=5, n_saw=7, ripple=0.15):
+    """Transition from v_from to v_to over `duration`, but instead of a plain
+    linear ramp, ride a composite ripple (sine + triangle + sawtooth) on top of
+    the linear trend.
+ 
+    The ripple is windowed (sin(pi*frac)) so it fades to zero at both ends,
+    which keeps the endpoints exactly at v_from / v_to -- so this drops straight
+    into main()'s pulse assembly with no jump at the seams. The sawtooth's sharp
+    resets still land mid-ramp, so the transition stays genuinely busy.
+ 
+    n_sine / n_tri / n_saw : number of full cycles of each component across the
+                             ramp.
+    ripple                 : combined ripple amplitude as a fraction of the
+                             transition height |v_to - v_from|.
+    """
     n_steps = int(duration / dt)
     if n_steps <= 0:
         return []
-    return [v_from + (v_to - v_from) * (i / n_steps) for i in range(n_steps + 1)]
+ 
+    span = v_to - v_from
+    amp = ripple * abs(span) if span else ripple   # fall back if flat
+ 
+    out = []
+    for i in range(n_steps + 1):
+        frac = i / n_steps                          # 0 .. 1 across the ramp
+        base = v_from + span * frac                 # linear trend
+ 
+        # sine component, in [-1, 1]
+        s = math.sin(2 * math.pi * n_sine * frac)
+ 
+        # triangle component, in [-1, 1] (corners at peaks)
+        tf = (n_tri * frac) % 1.0
+        tri = 1.0 - 4.0 * abs(tf - 0.5)
+ 
+        # sawtooth component, in [-1, 1] (sharp reset each cycle)
+        sf = (n_saw * frac) % 1.0
+        saw = 2.0 * sf - 1.0
+ 
+        # window: 0 at both ends, 1 in the middle -> endpoints stay clean
+        window = math.sin(math.pi * frac)
+ 
+        ripple_val = amp * window * (s + tri + saw) / 3.0
+        out.append(base + ripple_val)
+ 
+    return out
+ 
+ 
+def build_source(dt, Vs_max, total_time, seed=42,
+                 hold_range=(2.0, 8.0), ramp_range=(0.5, 3.0),
+                 min_delta_frac=0.3):
+    """Build a randomized source-voltage list: a train of composite ramps to
+    random levels, each separated by a random hold.
+ 
+    Starts at 0 V, then repeatedly picks a new random target level (each ramp is
+    the composite make_ramp shape), ramps to it over a random duration, and
+    holds there for a random duration -- until total_time is reached. Because
+    each target is drawn independently, the ramps go up and down "randomly."
+ 
+    seed           : fixes the RNG so runs are reproducible.
+    hold_range     : (min, max) seconds to sit at a level between ramps.
+    ramp_range     : (min, max) seconds for each ramp edge.
+    min_delta_frac : each new target must differ from the current level by at
+                     least this fraction of Vs_max, so every ramp is visible.
+    """
+    rng = random.Random(seed)
+    v = []
+    level = 0.0
+ 
+    # initial hold at 0 before anything happens
+    v += [level] * int(rng.uniform(*hold_range) / dt)
+ 
+    while len(v) * dt < total_time:
+        # pick a new target that's meaningfully different from where we are
+        target = rng.uniform(0, Vs_max)
+        while abs(target - level) < min_delta_frac * Vs_max:
+            target = rng.uniform(0, Vs_max)
+ 
+        ramp_dur = rng.uniform(*ramp_range)
+        v += make_ramp(level, target, ramp_dur, dt)
+        level = target
+ 
+        v += [level] * int(rng.uniform(*hold_range) / dt)
+ 
+    return v
 
 def main():
     print("Hello from pumpkynspice!")
@@ -74,18 +156,9 @@ def main():
     Vs_max = 3.3  # Volts
     dt = 0.001    # seconds
 
-    t_start = 5.0   # seconds low, before ramp
-    t_ramp  = 0.05  # seconds to ramp up/down -- tweak this to taste
-    t_high  = 5.0   # seconds high
-    t_low   = 10.0  # seconds low at the end
-
-    v_start     = [0] * int(t_start / dt)
-    v_ramp_up   = make_ramp(0, Vs_max, t_ramp, dt)
-    v_high      = [Vs_max] * int(t_high / dt)
-    v_ramp_down = make_ramp(Vs_max, 0, t_ramp, dt)
-    v_low       = [0] * int(t_low / dt)
-
-    v = v_start + v_ramp_up + v_high + v_ramp_down + v_low
+    total_time = 100.0  # seconds -- ~5x the original single-pulse run
+    # A randomized train of composite ramps up and down (reproducible via seed).
+    v = build_source(dt, Vs_max, total_time, seed=42)
     t = [i * dt for i in range(len(v))]
 
     # Initial value
