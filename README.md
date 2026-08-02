@@ -91,6 +91,23 @@ All the interesting parameters live in `main()` inside `slow.py`:
 
 Smaller `dt` gives a smoother, more accurate curve at the cost of more steps to simulate — which is exactly the kind of workload this project wants to speed up.
 
+## Definition of Done
+ 
+**You have a circuit simulator when:** it parses a netlist of resistors and
+independent sources, stamps a Modified Nodal Analysis (MNA) matrix, and solves
+`G·v = i` for the node voltages.
+ 
+The core idea: Kirchhoff's current law at each node becomes one linear equation,
+the conductances form a matrix, and the whole circuit collapses into a single
+linear solve. Voltage sources are the "modified" part — each adds an extra
+unknown (its branch current) plus a row and column. If a resistor divider prints
+the voltages you can check by hand, you have it: everything else in SPICE is a
+loop wrapped around this solve.
+ 
+- **Floor:** resistors + current sources only — plain nodal analysis, no augmentation.
+- **Stretch:** add a diode solved with Newton-Raphson — the leap from linear to nonlinear.
+---
+
 ## Roadmap
 
 - [ ] Expose simulation parameters as CLI args / function inputs (in progress)
