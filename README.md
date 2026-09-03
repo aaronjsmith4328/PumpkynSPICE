@@ -18,37 +18,63 @@
 
 ## What is this?
 
-**pumpkynspice** simulates the step response of a simple first-order **RC circuit** driven by a trapezoidal voltage pulse (rise → high → fall → low). It numerically integrates the classic RC charging equation using backward-Euler updates:
+**pumpkynspice** is a toy SPICE simulator written in Python, built incrementally toward a limited but real netlist-driven circuit solver. The goal is not to replicate a full commercial SPICE — it's to understand how one works by building the pieces from scratch.
 
+The current focus is the netlist parser: reading a `.sp` file with PySpice and building a circuit object that can eventually be stamped into an MNA matrix and solved. Each layer builds on the last — parser → MNA stamping → linear solve → nonlinear elements.
+
+The current files in the project are:
+
+| File | Description |
+| --- | --- |
+| `Spice.py` | Entry point. Instantiates `NetlistParser` on `netlist.sp` and runs it. |
+| `NetlistParser.py` | Wraps PySpice's `SpiceParser` to read a `.sp` file and build a circuit object. |
+| `netlist.sp` | Example SPICE netlist: an RLC ladder driven by a 1 kHz sine, used for testing the parser. |
+| `slow.py` | *(Deprecated)* Initial proof-of-concept RC simulator. Will be removed once the netlist-driven solver is in place. |
+
+---
+
+## The netlist
+
+`netlist.sp` is an AI-generated RLC ladder network for parser testing. A 1 kHz sine drives a series of resistors and inductors, with capacitors shunting to ground at each node:
+
+```spice
+* RLC Ladder Network - Transient
+* Driving with a 1kHz sine, watching the network ring and settle
+
+Vin 1 0 SIN(0 1 1000)
+
+* Series path (top rail)
+R1 1 2 100
+L1 2 3 10m
+R2 3 4 47
+L2 4 5 4.7m
+
+* Shunt elements to ground
+C1 2 0 100n
+C2 3 0 47n
+R3 3 0 10k
+C3 4 0 22n
+C4 5 0 10n
+
+* Termination
+R4 5 0 1k
+
+.TRAN 1u 10m
+.END
 ```
-i_R(t)     = (Vs(t) - Vout(t)) / R
-Vout(t+dt) = Vout(t) + i_R(t) * dt / C
-```
 
-```
-                      R
-         Vs(+) ---/\/\/\/\---+---> Vout
-                             |
-                            === C
-                             |
-                            GND
-```
+---
 
-The project currently ships one implementation:
+## Definition of Done
 
-| File       | Description                                                             |
-|------------|--------------------------------------------------------------------------|
-| `slow.py`  | Pure-Python reference implementation (plain lists + `for` loops).       |
+**You have a circuit simulator when:** it parses a netlist of resistors and independent sources, stamps a Modified Nodal Analysis (MNA) matrix, and solves `G·v = i` for the node voltages.
 
-A **NumPy-vectorized version is planned** (`fast.py`, working name) to benchmark against `slow.py` and see how much speedup vectorization buys us as input sizes grow.
+The core idea: Kirchhoff's current law at each node becomes one linear equation, the conductances form a matrix, and the whole circuit collapses into a single linear solve. Voltage sources are the "modified" part — each adds an extra unknown (its branch current) plus a row and column. If a resistor divider prints the voltages you can check by hand, you have it: everything else in SPICE is a loop wrapped around this solve.
 
-## Example output
+- **Floor:** resistors + current sources only — plain nodal analysis, no augmentation.
+- **Stretch:** add a diode solved with Newton-Raphson — the leap from linear to nonlinear.
 
-Running the simulator with the default parameters produces something like the following waveform:
-
-<p align="center">
-  <img src="output.png" alt="Vout vs Vsource waveform" width="600"/>
-</p>
+---
 
 ## Getting started
 
@@ -56,47 +82,40 @@ Running the simulator with the default parameters produces something like the fo
 
 - Python 3.14 (uv's default on this machine — no need to pin it explicitly)
 - [uv](https://docs.astral.sh/uv/) for environment/dependency management
-- [matplotlib](https://matplotlib.org/)
+- [PySpice](https://pyspice.fabrice-salvaire.fr/) for netlist parsing
+- [matplotlib](https://matplotlib.org/) (used by `slow.py`)
 
 ### Setup
 
-```bash
-uv add matplotlib
+```
+uv sync
 ```
 
-This adds `matplotlib` to `pyproject.toml`, updates `uv.lock`, and syncs your `.venv`.
+This installs all dependencies from `uv.lock`, including `PySpice` and `matplotlib`.
+
+To add a new dependency manually:
+
+```
+uv add <package>
+```
 
 ### Run it
 
-```bash
-uv run slow.py
+```
+uv run Spice.py
 ```
 
-This will print `Hello from pumpkynspice!`, run the simulation, and save the resulting plot to `output.png` in the current directory.
+This reads `netlist.sp`, parses it with PySpice, builds a circuit object, and prints `"Main all done!"`.
 
-## Tweaking the simulation
-
-All the interesting parameters live in `main()` inside `slow.py`:
-
-| Parameter | Meaning                                      | Default |
-|-----------|-----------------------------------------------|---------|
-| `R`       | Resistance (Ohms)                              | `10e3`  |
-| `C`       | Capacitance (Farads)                           | `100e-6`|
-| `Vs_max`  | Peak source voltage (Volts)                    | `3.3`   |
-| `dt`      | Simulation time step (seconds)                 | `0.001` |
-| `t_start` | Low period before the pulse begins (seconds)   | `5.0`   |
-| `t_ramp`  | Rise/fall time of the pulse edges (seconds)    | `0.05`  |
-| `t_high`  | Duration the source stays high (seconds)       | `5.0`   |
-| `t_low`   | Duration the source stays low, at the end (seconds) | `10.0` |
-
-Smaller `dt` gives a smoother, more accurate curve at the cost of more steps to simulate — which is exactly the kind of workload this project wants to speed up.
+---
 
 ## Roadmap
 
-- [ ] Expose simulation parameters as CLI args / function inputs (in progress)
-- [x] Add Backward Euler integration
-- [ ] Add Non-Linear Elements (diodes, transistors)
-- [ ] Add State-Space/Matrix Methods of solving for more complex circuits
-- [ ] Add a NumPy-vectorized implementation (`fast.py`)
-- [ ] Benchmark `slow.py` vs. `fast.py` across a range of input sizes
-- [ ] Maybe: swap backward-Euler for a higher-order integrator (RK4)
+- [x] Initial proof of concept (`slow.py` — RC simulator)
+- [x] Netlist parser (PySpice-backed `NetlistParser`)
+- [x] Example SPICE netlist (`netlist.sp`)
+- [ ] Remove `slow.py`
+- [ ] Stamp MNA matrix from parsed netlist elements
+- [ ] Solve `G·v = i` for DC operating point
+- [ ] Add Non-Linear Elements (diodes, transistors via Newton-Raphson)
+- [ ] Transient analysis
